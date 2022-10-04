@@ -39,17 +39,18 @@ def check_moves(event):
             player_speed += 7
 
 def init_gui():
-    global width, height, players, ball, window, light, bg
-    width, height = 1280, 960
+    global players, ball, window, light, bg
     window = display.set_mode((width,height))
-    display.set_caption('Pong')    
+    display.set_caption('Pong')
+    ball_ratio = int(width/42)
+    player_height_ratio = int(height/7)
 
     players = [
-        Rect(width - 20, height/2 - 70,10,140),
-        Rect(10, height/2 - 70,10,140)
+        Rect(width - 20, height/2 - 70,10,player_height_ratio),
+        Rect(10, height/2 - 70,10,player_height_ratio)
     ]
 
-    ball = Rect(width/2 - 15, height/2 - 15,30,30)
+    ball = Rect(width/2 - ball_ratio/2, height/2 - ball_ratio/2,ball_ratio,ball_ratio)
 
     bg = Color('grey12')
     light = (200,200,200)
@@ -107,6 +108,7 @@ def run_gui(client_id, my_socket, op_ip, server_ip, server_port):
         clock.tick(60) #60 fps
 
 if __name__ == '__main__':
+    global width, height
     name = input('Player name: ')
     server_ip = input('Server ip (default localhost): ') or 'localhost'
     server_port = int(input('Server port (default 50000): ') or 50000)
@@ -121,9 +123,10 @@ if __name__ == '__main__':
             my_socket.sendto(f'JOIN;{name}'.encode(), (server_ip,server_port))
             msg = my_socket.recv(1500) #ACPT;NAME;ID
 
-            status, svname, client_id = msg.decode().split(';')
+            status, svname, client_id, width, height = msg.decode().split(';')
             if status == 'ACPT' and svname == name:
                 print(f'Sucessfully joined server! Player id: {client_id}')
+                width, height = int(width), int(height)
                 break
 
         except timeout as err:
