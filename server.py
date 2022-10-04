@@ -6,7 +6,7 @@
 
     BJL protocol:
     JOIN;PLAYER_NAME (client-side)
-    ACPT;PLAYER_NAME;PLAYER_ID;RESX;RESY (server-side)
+    ACPT;PLAYER_NAME;PLAYER_ID (server-side)
     OPPN;NAME;IP (server-side) servidor deve especificar o tipo de erro
     BALL;X;Y
     STRT;TYPE (server-side)
@@ -20,38 +20,39 @@ import multiprocessing
 import time, random
 
 class server:
-    def __init__(self,ip,port,log,max_players = 2, res_x = 800, res_y = 600):
+    def __init__(self,ip,port,log,max_players = 2):
         self.ip = ip
         self.port = port
         self.players_count = 0
-        self.res_x = res_x
-        self.res_y = res_y
-        self.ball_pos = [None,None] #X,Y
+        self.ball_pos = [1280/2,960/2] #X,Y
         self.ball_x_dir = None
         self.ball_y_dir = None
         self.max_players = max_players
         self.state = 0 #0: lobby, 1: Game started, 2:Game finished!
         self.players = [] #queue (name,ip,position) player 1: right / player2: left
         self.refresh = False
-        self.scoreboard = []
+        self.scoreboard = {}
+        self.turn = None
         self.log = log
 
+    def set_turn(self):
+        self.turn = 1 if self.ball_x_dir <= 0 else 0
+
     def set_ball(self):
-        self.ball_pos = [self.res_x/2,self.res_y/2]
+        self.ball_pos = [1280/2,960/2]
         self.ball_x_dir = random.choice((-7,7))
         self.ball_y_dir = random.choice((-1,1))
+        self.set_turn()
     
     def update_ball(self,s):
         self.ball_pos[0] += self.ball_x_dir
         self.ball_pos[1] += self.ball_y_dir
         
-        if int(self.ball_pos[0]) <= 0:
-            self.update_scoreboard(0)
+        if int(self.ball_pos[0]) <= 0 or int(self.ball_pos[0]) >= 1280: #gol
+            print('gol')
             return True
-        elif int(self.ball_pos[0]) >= self.res_x: #gol
-            self.update_scoreboard(1)
-            return True
-        elif int(self.ball_pos[1]) <= 0 or int(self.ball_pos[1]) >= self.res_y:
+
+        elif int(self.ball_pos[1]) <= 0 or int(self.ball_pos[1]) >= 960:
             self.ball_y_dir *= -1
             return False
 
@@ -87,13 +88,14 @@ class server:
                 self.players[int(res[1])][2] = int(res[2])
 
     def set_scoreboard(self):
-        for i in range(len(self.players)):
-            self.scoreboard.append([self.players[i][0],0])
+        p1_name = self.players[0][1]
+        p2_name = self.players[1][1]
+
+        self.scoreboard[p1_name] = 0
+        self.scoreboard[p2_name] = 0
     
-    def update_scoreboard(self, pos):      
-        self.scoreboard[pos][1] += 1
-        print(f'PLACAR - {self.scoreboard[0][0]}: {self.scoreboard[0][1]}, \
-        {self.scoreboard[1][0]}: {self.scoreboard[1][1]}') 
+    def update_scoreboard(self, name):       
+        self.scoreboard[name] += 1
     
     def print_scoreboard(self):
         scoreboard_str = '='*5 + ' Scoreboard ' + '='*5 +'\n'\
@@ -121,10 +123,9 @@ class server:
         p_queue = multiprocessing.Queue()
         col_process = multiprocessing.Process(target=self.listen_collision,args=(s,p_queue))
         goal = False
-        timeout_time = 60 #s
         while 1:
             if self.state == 0: #lobby
-                s.settimeout(timeout_time)
+                s.settimeout(60)
                 try:
                     if self.players_count == self.max_players:
                         for i in range(2): #2 first players from queue
@@ -135,17 +136,17 @@ class server:
                         msg, clientIP = s.recvfrom(1500)
                         res = msg.decode().split(';')
 
-                        if res[0] == 'JOIN' and self.players_count < self.max_players:            
+                        if res[0] == 'JOIN' and self.players_count < self.max_players:
                             name = res[1]
                             self.players_count += 1
-                            self.players.append([name,clientIP,self.res_y/2]) #create player
+                            self.players.append([name,clientIP,960/2]) #create player
                             print(f'{name} joined server!')                    
-                            s.sendto(f'ACPT;{name};{self.players_count-1};{self.res_x};{self.res_y}'.encode(), clientIP)
+                            s.sendto(f'ACPT;{name};{self.players_count-1}'.encode(), clientIP)
                         
                     self.printl(f'Total players: {self.players_count}/{self.max_players}')
 
                 except timeout as err:
-                    self.printl(f'No connection attempts after {timeout_time}s...\nError: {err}, exiting...')
+                    self.printl(f'No connection attempts after 15s...\nError: {err}, exiting...')
                     s.close()
                     break
 
@@ -154,14 +155,12 @@ class server:
                 res = msg.decode().split(';')
 
                 if res[0] == 'STRT':
-                    # players_ready.append(res[1])
-                    # print(players_ready)
-                    # if len(set(players_ready)) == 2:
+                    players_ready.append(res[1])
+                    if len(set(players_ready)) == 2:
                         s.sendto(f'STRT;'.encode(),self.players[0][1])
                         s.sendto(f'STRT;'.encode(),self.players[1][1])
                         self.set_scoreboard()
                         self.set_ball()
-                        time.sleep(2)
                         s.sendto(f'BALL;{self.ball_pos[0]};{self.ball_pos[1]}'.encode(), self.players[0][1])
                         s.sendto(f'BALL;{self.ball_pos[0]};{self.ball_pos[1]}'.encode(), self.players[1][1])
                         self.state = 2
@@ -174,7 +173,8 @@ class server:
                     if collision[1] == 'X':                        
                         self.ball_x_dir *= -1                        
                     elif collision[1] == 'Y':
-                        self.ball_y_dir *= -1                    
+                        self.ball_y_dir *= -1
+                    self.set_turn()
                 else:
                     goal = self.update_ball(s)
                     if goal:
