@@ -32,6 +32,7 @@ class server:
         self.max_players = max_players
         self.state = 0 #0: lobby, 1: Game started, 2:Game finished!
         self.players = [] #queue (name,ip,position) player 1: right / player2: left
+        #self.players_x = [res_y - 20, 10]
         self.refresh = False
         self.scoreboard = []
         self.log = log
@@ -61,21 +62,26 @@ class server:
         s.sendto(f'BALL;{self.ball_pos[0]};{self.ball_pos[1]}'.encode(), self.players[0][1])
         s.sendto(f'BALL;{self.ball_pos[0]};{self.ball_pos[1]}'.encode(), self.players[1][1])
     
+    '''
+    Fazer com que ambos players enviem suas posicoes e as colisoes serem calculadas no server, 
+    de modo que ball x == player x -> inverte ball xdir
+    '''
+    #def collision(self):
+        #if 
+
     def listen_collision(self,s,p_queue):
-        last_collision = None
+        #last_collision = None
         while True:                    
-            if not p_queue.empty():              
-                last_collision = None
+            if not p_queue.empty():                 
                 p_queue.get()
                 print('esvaziou a fila')
 
             msg = s.recv(1500)
             res = msg.decode().split(';')
 
-            if res[0] == 'COLI' and (last_collision == None or last_collision != res[2]): #colision
+            if res[0] == 'COLI':
                 if p_queue.empty():
                     p_queue.put(res)
-                    last_collision = res[2]
                     time.sleep(1)
 
     def listen_moves(self,s):
@@ -139,7 +145,7 @@ class server:
                             name = res[1]
                             self.players_count += 1
                             self.players.append([name,clientIP,self.res_y/2]) #create player
-                            print(f'{name} joined server!')                    
+                            print(f'{name} joined server! {clientIP}')                    
                             s.sendto(f'ACPT;{name};{self.players_count-1};{self.res_x};{self.res_y}'.encode(), clientIP)
                         
                     self.printl(f'Total players: {self.players_count}/{self.max_players}')
@@ -170,11 +176,9 @@ class server:
             elif self.state == 2: #game started
 
                 if not p_queue.empty():
-                    collision = p_queue.get()
-                    if collision[1] == 'X':                        
-                        self.ball_x_dir *= -1                        
-                    elif collision[1] == 'Y':
-                        self.ball_y_dir *= -1                    
+                    collision = p_queue.get()                                          
+                    self.ball_x_dir *= -1  
+                    self.ball_y_dir *= random.choice((-1,1))                                                            
                 else:
                     goal = self.update_ball(s)
                     if goal:

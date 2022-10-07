@@ -3,15 +3,19 @@ from socket import *
 from pygame import *
 import multiprocessing
 
-def update_ball(x,y):
-    # global speed_x, speed_y
+def update_ball(x,y,colision):
     ball.center = (int(x),int(y))
-    #print(x,y)
-    
-    if ball.colliderect(players[int(client_id)]):
-        my_socket.sendto(f'COLI;X;{client_id}'.encode(), (server_ip,server_port))
+
+    if ball.colliderect(players[int(client_id)]) and colision == True:
+        my_socket.sendto(f'COLI;'.encode(), (server_ip,server_port))
+        colision = False
+    elif not colision:
+        if x == width/2:
+            colision = True
     else:
         my_socket.sendto(f'RFSH;'.encode(),(server_ip,server_port))
+
+    return colision
 
 def update_player(player, id, top=None):    
     if int(client_id) == int(id):
@@ -65,6 +69,8 @@ def run_gui(client_id, my_socket, op_ip, server_ip, server_port):
     global player_speed
     player_speed = 0
 
+    allow_colision = True
+
     if get_init():
         my_socket.sendto(f'STRT;{client_id}'.encode(), (server_ip,server_port))
     start = False
@@ -77,7 +83,8 @@ def run_gui(client_id, my_socket, op_ip, server_ip, server_port):
             start = True
 
         if res[0] == 'BALL': #BALL;X,Y
-            update_ball(float(res[1]),float(res[2]))
+        
+            allow_colision = update_ball(float(res[1]),float(res[2]), allow_colision)
 
         if res[0] == 'OPMV': #OPMV;OP_ID;MOVE
             update_player(players[int(res[1])],int(res[1]),res[2])
@@ -145,7 +152,10 @@ if __name__ == '__main__':
         
             if res[0] == 'OPPN':
                 opponent_ip = res[2].replace('(','').replace(')','').replace("'",'').replace(' ','').split(',')
+                if opponent_ip.split('.')[0] == '192': #tratando caso em que um player esta na mesma rede que o servidor
+                    opponent_ip[0] = server_ip
                 opponent_name = res[1]
+                print(f'tentando enviar para {opponent_ip[0]}:{int(opponent_ip[1])}')
                 my_socket.sendto(f'HELO;HELLO FROM {name}'.encode(), (opponent_ip[0],int(opponent_ip[1])))
 
             elif res[0] == 'HELO':
