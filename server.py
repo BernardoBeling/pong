@@ -17,7 +17,30 @@
 
 from socket import *
 import multiprocessing
-import time, random
+import time, random, sys
+
+def get_external_ip():
+    from requests import get
+    ip = get('https://api.ipify.org').content.decode('utf8')
+    return ip
+
+def listen_collision(s,p_queue):
+    res = ''
+    while True:                    
+        if not p_queue.empty():                 
+            p_queue.get()
+            print('esvaziou a fila')
+
+        try: #fix BlockingIO Winerror 10035 
+            msg = s.recv(1500)
+            res = msg.decode().split(';')
+        except error:
+            time.sleep(1)
+
+        if res[0] == 'COLI':
+            if p_queue.empty():
+                p_queue.put(res)
+                time.sleep(1)
 
 class server:
     def __init__(self,ip,port,log,max_players = 2, res_x = 800, res_y = 600):
@@ -32,7 +55,6 @@ class server:
         self.max_players = max_players
         self.state = 0 #0: lobby, 1: Game started, 2:Game finished!
         self.players = [] #queue (name,ip,position) player 1: right / player2: left
-        #self.players_x = [res_y - 20, 10]
         self.refresh = False
         self.scoreboard = []
         self.log = log
@@ -69,21 +91,6 @@ class server:
     #def collision(self):
         #if 
 
-    def listen_collision(self,s,p_queue):
-        #last_collision = None
-        while True:                    
-            if not p_queue.empty():                 
-                p_queue.get()
-                print('esvaziou a fila')
-
-            msg = s.recv(1500)
-            res = msg.decode().split(';')
-
-            if res[0] == 'COLI':
-                if p_queue.empty():
-                    p_queue.put(res)
-                    time.sleep(1)
-
     def listen_moves(self,s):
         while True:        
             msg = s.recv(1500)
@@ -103,7 +110,7 @@ class server:
     
     def print_scoreboard(self):
         scoreboard_str = '='*5 + ' Scoreboard ' + '='*5 +'\n'\
-             + str(self.scoreboard).replace("'","").replace("{","").replace("}","") + '\n'\
+            + str(self.scoreboard).replace("'","").replace("{","").replace("}","") + '\n'\
                 + '='*22
         print(scoreboard_str)
         return scoreboard_str
@@ -112,20 +119,11 @@ class server:
         print(string)
         log.write(string + '\n')
     
-    def start(self):
-        s = socket(AF_INET,SOCK_DGRAM)
-        try:
-            s.bind((self.ip,self.port))
-        except socket.error as err:
-            print(f'Error binding server to IP:PORT\n Error: {err}')
-            return False
+    def start(self,s,p_queue):
             
         self.printl(f'Server online on {self.ip}:{self.port} with UDP connection!')
 
         players_ready = []
-
-        p_queue = multiprocessing.Queue()
-        col_process = multiprocessing.Process(target=self.listen_collision,args=(s,p_queue))
         goal = False
         timeout_time = 60 #s
         while 1:
@@ -147,7 +145,14 @@ class server:
                             self.players.append([name,clientIP,self.res_y/2]) #create player
                             print(f'{name} joined server! {clientIP}')                    
                             s.sendto(f'ACPT;{name};{self.players_count-1};{self.res_x};{self.res_y}'.encode(), clientIP)
-                        
+
+                        elif self.player_count == self.max_players:
+                            if any("192" in x for x in players[0][1][0].split('.')) and not any("192" in x for x in players[1][1][0].split('.')):
+                                s.sendto(f'OPIP;{get_external_ip()}'.encode(),players[1][1])
+                            elif any("192" in x for x in players[1][1][0].split('.')) and not any("192" in x for x in players[0][1][0].split('.')):
+                                s.sendto(f'OPIP;{get_external_ip()}'.encode(),players[0][1])
+                       
+
                     self.printl(f'Total players: {self.players_count}/{self.max_players}')
 
                 except timeout as err:
@@ -201,9 +206,29 @@ class server:
     def __del__(self):
         print('Server closed!')
 
-ip = input('Server ip (default localhost): ') or 'localhost'
-port = int(input('Server port (default 50000): ') or 50000)
-log = open('server_log.txt', 'w')
-server = server(ip,port,log)
-server.start()
-log.close()
+if __name__ == '__main__':
+    
+    if len(sys.argv) > 1 and sys.argv[1] == 'l':
+        ip = 'localhost'
+    else:
+        ip = gethostbyname(gethostname())
+
+    port = int(input('Server port (default 50000): ') or 50000)
+    log = open('server_log.txt', 'w')
+
+    s = socket(AF_INET,SOCK_DGRAM)
+    try:
+        s.bind((ip,port))
+    except socket.error as err:
+        print(f'Error binding server to IP:PORT\n Error: {err}')
+        exit()
+
+    if sys.platform == 'win32':
+        multiprocessing.set_start_method('spawn')
+
+    p_queue = multiprocessing.Queue()
+    col_process = multiprocessing.Process(target=listen_collision,args=(s,p_queue)) 
+
+    server = server(ip,port,log)
+    server.start(s,p_queue)
+    log.close()

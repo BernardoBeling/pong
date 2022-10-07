@@ -1,7 +1,7 @@
 import sys
+from time import sleep
 from socket import *
 from pygame import *
-import multiprocessing
 
 def update_ball(x,y,colision):
     ball.center = (int(x),int(y))
@@ -117,7 +117,12 @@ def run_gui(client_id, my_socket, op_ip, server_ip, server_port):
 if __name__ == '__main__':
     global width, height
     name = input('Player name: ')
-    server_ip = input('Server ip (default localhost): ') or 'localhost'
+
+    if len(sys.argv) > 1 and sys.argv[1] == 'l':
+        server_ip = 'localhost'
+    else:
+        server_ip = input('Server ip (default LAN IP): ') or gethostbyname(gethostname())
+
     server_port = int(input('Server port (default 50000): ') or 50000)
     attempts = 0
     client_id = 0
@@ -126,10 +131,10 @@ if __name__ == '__main__':
 
     while attempts <= 3:
         try:
-            print('Attempting to connect...')
-            my_socket.sendto(f'JOIN;{name}'.encode(), (server_ip,server_port))
-            msg = my_socket.recv(1500) #ACPT;NAME;ID
+            print('Attempting to connect...')            
+            my_socket.sendto(f'JOIN;{name}'.encode(), (server_ip,server_port))            
 
+            msg = my_socket.recv(1500) #ACPT;NAME;ID
             status, svname, client_id, width, height = msg.decode().split(';')
             if status == 'ACPT' and svname == name:
                 print(f'Sucessfully joined server! Player id: {client_id}')
@@ -140,6 +145,7 @@ if __name__ == '__main__':
             attempts += 1
     else:
         print('No response from the server after 15s (3 attempts)...')
+        exit()
 
     my_socket.settimeout(60)
     print('Waiting for opponent to connect...')
@@ -152,11 +158,15 @@ if __name__ == '__main__':
         
             if res[0] == 'OPPN':
                 opponent_ip = res[2].replace('(','').replace(')','').replace("'",'').replace(' ','').split(',')
-                if opponent_ip.split('.')[0] == '192': #tratando caso em que um player esta na mesma rede que o servidor
-                    opponent_ip[0] = server_ip
                 opponent_name = res[1]
                 print(f'tentando enviar para {opponent_ip[0]}:{int(opponent_ip[1])}')
                 my_socket.sendto(f'HELO;HELLO FROM {name}'.encode(), (opponent_ip[0],int(opponent_ip[1])))
+
+            elif res[0] == 'OPIP':
+                print(res[1])
+                opponent_ip[0] = res[1]
+                print(f'opponent_ip: {opponent_ip}')
+                break
 
             elif res[0] == 'HELO':
                 print(res[1])
@@ -164,6 +174,7 @@ if __name__ == '__main__':
         
     except timeout as err:
         print('No response from opponent.')
+        exit()
 
     status = ''
     type = ''
