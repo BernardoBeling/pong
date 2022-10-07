@@ -168,8 +168,9 @@ if __name__ == '__main__':
                 my_socket.sendto(f'HELO;HELLO FROM {name}'.encode(), (opponent_ip[0],int(opponent_ip[1])))
 
             elif res[0] == 'OPIP':
-                print(msg,ip)
-                opponent_ip[0] = res[1]
+                print(msg)
+                opponent_ip[0] = res[1].split(':')[0]
+                opponent_ip[1] = int(res[1].split(':')[1])
                 print(f'opponent_ip: {opponent_ip}')
                 break
 
