@@ -24,6 +24,11 @@ def get_external_ip():
     ip = get('https://api.ipify.org').content.decode('utf8')
     return ip
 
+def get_local_ip():
+    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    s.connect(("8.8.8.8", 80))
+    return s.getsockname()[0]
+
 def listen_collision(s,p_queue):
     res = ''
     while True:                    
@@ -131,6 +136,11 @@ class server:
                 s.settimeout(timeout_time)
                 try:
                     if self.players_count == self.max_players:
+                        if any("192" in x for x in players[0][1][0].split('.')) and not any("192" in x for x in players[1][1][0].split('.')):
+                            s.sendto(f'OPIP;{get_external_ip()}'.encode(),players[1][1])
+                        elif any("192" in x for x in players[1][1][0].split('.')) and not any("192" in x for x in players[0][1][0].split('.')):
+                            s.sendto(f'OPIP;{get_external_ip()}'.encode(),players[0][1])
+
                         for i in range(2): #2 first players from queue
                             oppn = 1 if i == 0 else 0                            
                             s.sendto(f'OPPN;{self.players[oppn][0]};{self.players[oppn][1]}'.encode(), self.players[i][1])
@@ -144,14 +154,7 @@ class server:
                             self.players_count += 1
                             self.players.append([name,clientIP,self.res_y/2]) #create player
                             print(f'{name} joined server! {clientIP}')                    
-                            s.sendto(f'ACPT;{name};{self.players_count-1};{self.res_x};{self.res_y}'.encode(), clientIP)
-
-                        elif self.player_count == self.max_players:
-                            if any("192" in x for x in players[0][1][0].split('.')) and not any("192" in x for x in players[1][1][0].split('.')):
-                                s.sendto(f'OPIP;{get_external_ip()}'.encode(),players[1][1])
-                            elif any("192" in x for x in players[1][1][0].split('.')) and not any("192" in x for x in players[0][1][0].split('.')):
-                                s.sendto(f'OPIP;{get_external_ip()}'.encode(),players[0][1])
-                       
+                            s.sendto(f'ACPT;{name};{self.players_count-1};{self.res_x};{self.res_y}'.encode(), clientIP)                        
 
                     self.printl(f'Total players: {self.players_count}/{self.max_players}')
 
@@ -211,7 +214,7 @@ if __name__ == '__main__':
     if len(sys.argv) > 1 and sys.argv[1] == 'l':
         ip = 'localhost'
     else:
-        ip = gethostbyname(gethostname())
+        ip = get_local_ip()
 
     port = int(input('Server port (default 50000): ') or 50000)
     log = open('server_log.txt', 'w')
