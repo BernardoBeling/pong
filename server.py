@@ -7,7 +7,7 @@
     BJL protocol:
     JOIN;PLAYER_NAME (client-side)
     ACPT;PLAYER_NAME;PLAYER_ID;RESX;RESY (server-side)
-    OPPN;NAME;IP (server-side) servidor deve especificar o tipo de erro
+    OPPN;IP;NAME (server-side) servidor deve especificar o tipo de erro
     BALL;X;Y
     STRT;TYPE (server-side)
     SHOW;SCOREBOARD
@@ -132,18 +132,27 @@ class server:
         goal = False
         timeout_time = 60 #s
         while 1:
+            player0_local, player1_local = False, False
             if self.state == 0: #lobby
                 s.settimeout(timeout_time)
                 try:
                     if self.players_count == self.max_players:
-                        if any("192" in x for x in self.players[0][1][0].split('.')) and not any("192" in x for x in self.players[1][1][0].split('.')):                    
-                            s.sendto(f'OPIP;{get_external_ip()}:{self.players[0][1][1]}'.encode(),self.players[1][1])
-                        elif any("192" in x for x in self.players[1][1][0].split('.')) and not any("192" in x for x in self.players[0][1][0].split('.')):                        
-                            s.sendto(f'OPIP;{get_external_ip()}:{self.players[1][1][1]}'.encode(),self.players[0][1])
+
+                        if self.players[0][1][0].split('.')[0] == get_local_ip().split('.')[0]:
+                            player0_local = True
+                        if self.players[1][1][0].split('.')[0] == get_local_ip().split('.')[0]:
+                            player1_local = True
 
                         for i in range(2): #2 first players from queue
-                            oppn = 1 if i == 0 else 0                            
-                            s.sendto(f'OPPN;{self.players[oppn][0]};{self.players[oppn][1]}'.encode(), self.players[i][1])
+                            oppn = 1 if i == 0 else 0   
+                            if i == 0 and player0_local and not player1_local:
+                                print('entrou 0local e 1notlocal')
+                                s.sendto(f'OPPN;{get_external_ip()}:{self.players[i][1][1]};{self.players[i][0]}'.encode(),self.players[oppn][1])
+                            elif i == 1 and player1_local and not player0_local:
+                                print('entrou 1local e 0notlocal')
+                                s.sendto(f'OPPN;{get_external_ip()}:{self.players[i][1][1]};{self.players[i][0]}'.encode(),self.players[oppn][1])
+                            else:                            
+                                s.sendto(f'OPPN;{self.players[i][1][0]}:{self.players[i][1][1]};{self.players[i][0]}'.encode(), self.players[oppn][1])
                             self.state = 1                             
                     else:
                         msg, clientIP = s.recvfrom(1500)
