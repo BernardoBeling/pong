@@ -136,10 +136,10 @@ class server:
                 s.settimeout(timeout_time)
                 try:
                     if self.players_count == self.max_players:
-                        if any("192" in x for x in players[0][1][0].split('.')) and not any("192" in x for x in players[1][1][0].split('.')):
-                            s.sendto(f'OPIP;{get_external_ip()}'.encode(),players[1][1])
-                        elif any("192" in x for x in players[1][1][0].split('.')) and not any("192" in x for x in players[0][1][0].split('.')):
-                            s.sendto(f'OPIP;{get_external_ip()}'.encode(),players[0][1])
+                        if any("192" in x for x in self.players[0][1][0].split('.')) and not any("192" in x for x in self.players[1][1][0].split('.')):
+                            s.sendto(f'OPIP;{get_external_ip()}'.encode(),self.players[1][1])
+                        elif any("192" in x for x in self.players[1][1][0].split('.')) and not any("192" in x for x in self.players[0][1][0].split('.')):
+                            s.sendto(f'OPIP;{get_external_ip()}'.encode(),self.players[0][1])
 
                         for i in range(2): #2 first players from queue
                             oppn = 1 if i == 0 else 0                            

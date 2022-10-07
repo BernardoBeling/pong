@@ -3,6 +3,11 @@ from time import sleep
 from socket import *
 from pygame import *
 
+def get_local_ip():
+    s = socket(AF_INET, SOCK_DGRAM)
+    s.connect(("8.8.8.8", 80))
+    return s.getsockname()[0]
+
 def update_ball(x,y,colision):
     ball.center = (int(x),int(y))
 
@@ -121,7 +126,7 @@ if __name__ == '__main__':
     if len(sys.argv) > 1 and sys.argv[1] == 'l':
         server_ip = 'localhost'
     else:
-        server_ip = input('Server ip (default LAN IP): ') or gethostbyname(gethostname())
+        server_ip = input('Server ip (default LAN IP): ') or get_local_ip()
 
     server_port = int(input('Server port (default 50000): ') or 50000)
     attempts = 0
@@ -153,7 +158,7 @@ if __name__ == '__main__':
     opponent_name = ''
     try:
         while True: #Wait for communication between clients
-            msg = my_socket.recv(1500) #OPPN;NAME;IP
+            msg, ip = my_socket.recvfrom(1500) #OPPN;NAME;IP
             res = msg.decode().split(';')
         
             if res[0] == 'OPPN':
@@ -163,7 +168,7 @@ if __name__ == '__main__':
                 my_socket.sendto(f'HELO;HELLO FROM {name}'.encode(), (opponent_ip[0],int(opponent_ip[1])))
 
             elif res[0] == 'OPIP':
-                print(res[1])
+                print(msg,ip)
                 opponent_ip[0] = res[1]
                 print(f'opponent_ip: {opponent_ip}')
                 break
