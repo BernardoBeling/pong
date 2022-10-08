@@ -143,17 +143,20 @@ class server:
                         if self.players[1][1][0].split('.')[0] == get_local_ip().split('.')[0]:
                             player1_local = True
 
-                        for i in range(2): #2 first players from queue
-                            oppn = 1 if i == 0 else 0   
-                            if i == 0 and player0_local and not player1_local:
+                        if (player0_local and player1_local) or (not player0_local and not player1_local):
+                                s.sendto(f'OPPN;{self.players[0][1][0]}:{self.players[0][1][1]};{self.players[0][0]}'.encode(), self.players[1][1])
+                                s.sendto(f'OPPN;{self.players[1][1][0]}:{self.players[1][1][1]};{self.players[1][0]}'.encode(), self.players[0][1])
+                        elif player0_local:
                                 print('entrou 0local e 1notlocal')
-                                s.sendto(f'OPPN;{get_external_ip()}:{self.players[i][1][1]};{self.players[i][0]}'.encode(),self.players[oppn][1])
-                            elif i == 1 and player1_local and not player0_local:
+                                s.sendto(f'OPPN;{get_external_ip()}:{self.players[0][1][1]};{self.players[0][0]}'.encode(),self.players[1][1])
+                                s.sendto(f'OPPN;{self.players[1][1][0]}:{self.players[1][1][1]};{self.players[1][0]}'.encode(),self.players[0][1])
+                        elif player1_local:
                                 print('entrou 1local e 0notlocal')
-                                s.sendto(f'OPPN;{get_external_ip()}:{self.players[i][1][1]};{self.players[i][0]}'.encode(),self.players[oppn][1])
-                            else:                            
-                                s.sendto(f'OPPN;{self.players[i][1][0]}:{self.players[i][1][1]};{self.players[i][0]}'.encode(), self.players[oppn][1])
-                            self.state = 1                             
+                                s.sendto(f'OPPN;{get_external_ip()}:{self.players[1][1][1]};{self.players[1][0]}'.encode(),self.players[0][1])
+                                s.sendto(f'OPPN;{self.players[0][1][0]}:{self.players[0][1][1]};{self.players[0][0]}'.encode(),self.players[1][1])                                                    
+                                
+                        self.state = 1  
+                                                       
                     else:
                         msg, clientIP = s.recvfrom(1500)
                         res = msg.decode().split(';')
