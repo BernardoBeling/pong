@@ -27,7 +27,9 @@ def get_external_ip():
 def get_local_ip():
     s = socket(AF_INET, SOCK_DGRAM)
     s.connect(("8.8.8.8", 80))
-    return s.getsockname()[0]
+    ip = s.getsockname()[0]
+    s.close()
+    return ip
 
 def listen_collision(s,p_queue):
     res = ''
@@ -48,7 +50,7 @@ def listen_collision(s,p_queue):
                 time.sleep(1)
 
 class server:
-    def __init__(self,ip,port,log,max_players = 2, res_x = 800, res_y = 600):
+    def __init__(self,ip,port,log,max_players = 2, res_x = 1024, res_y = 600):
         self.ip = ip
         self.port = port
         self.players_count = 0
@@ -73,10 +75,10 @@ class server:
         self.ball_pos[0] += self.ball_x_dir
         self.ball_pos[1] += self.ball_y_dir
         
-        if int(self.ball_pos[0]) <= 0:
+        if int(self.ball_pos[0]) < -100:
             self.update_scoreboard(0)
             return True
-        elif int(self.ball_pos[0]) >= self.res_x: #gol
+        elif int(self.ball_pos[0]) > self.res_x + 100: #gol
             self.update_scoreboard(1)
             return True
         elif int(self.ball_pos[1]) <= 0 or int(self.ball_pos[1]) >= self.res_y:

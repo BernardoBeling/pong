@@ -6,7 +6,9 @@ from pygame import *
 def get_local_ip():
     s = socket(AF_INET, SOCK_DGRAM)
     s.connect(("8.8.8.8", 80))
-    return s.getsockname()[0]
+    ip = s.getsockname()[0]
+    s.close()
+    return ip
 
 def update_ball(x,y,colision):
     ball.center = (int(x),int(y))
