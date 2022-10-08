@@ -130,7 +130,7 @@ class server:
             
         self.printl(f'Server online on {self.ip}:{self.port} with UDP connection!')
 
-        players_ready = []
+        players_ready = 0
         goal = False
         timeout_time = 60 #s
         while 1:
@@ -180,8 +180,9 @@ class server:
             elif self.state == 1: #wait both players to be ready
                 msg, clientIP = s.recvfrom(1500)
                 res = msg.decode().split(';')
-
-                if res[0] == 'STRT':
+                if res[0] == 'STRT' and players_ready < 2:
+                    players_ready += 1
+                if res[0] == 'STRT' and players_ready == 2:
                     # players_ready.append(res[1])
                     # print(players_ready)
                     # if len(set(players_ready)) == 2:
