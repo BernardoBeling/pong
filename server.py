@@ -74,10 +74,10 @@ class server:
         self.ball_pos[1] += self.ball_y_dir
     
         if int(self.ball_pos[0]) < -100:
-            self.update_scoreboard(0)
+            self.update_scoreboard(1)
             return True
         elif int(self.ball_pos[0]) > self.res_x + 100: #gol
-            self.update_scoreboard(1)
+            self.update_scoreboard(0)
             return True
             
         elif int(self.ball_pos[1]) <= 0 or int(self.ball_pos[1]) >= self.res_y:
@@ -105,14 +105,14 @@ class server:
     
     def update_scoreboard(self, pos):      
         self.scoreboard[pos][1] += 1
-        print(f'PLACAR - {self.scoreboard[0][0]}: {self.scoreboard[0][1]}, \
-        {self.scoreboard[1][0]}: {self.scoreboard[1][1]}') 
+        self.print_scoreboard()
     
     def print_scoreboard(self):
         scoreboard_str = '='*5 + ' Scoreboard ' + '='*5 +'\n'\
-            + str(self.scoreboard).replace("'","").replace("{","").replace("}","") + '\n'\
+            + f'{self.scoreboard[0][0]}: {self.scoreboard[0][1]}, \
+        {self.scoreboard[1][0]}: {self.scoreboard[1][1]}' + '\n'\
                 + '='*22
-        print(scoreboard_str)
+        self.printl(scoreboard_str)
         return scoreboard_str
     
     def printl(self,string):

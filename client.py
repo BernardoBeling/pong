@@ -57,8 +57,8 @@ def init_gui():
     player_height_ratio = int(height/7)
 
     players = [
-        Rect(width - 20, height/2 - 70,10,player_height_ratio),
-        Rect(10, height/2 - 70,10,player_height_ratio)
+        Rect(10, height/2 - 70,10,player_height_ratio), #x_pos,y_pos,thickness,height
+        Rect(width - 20, height/2 - 70,10,player_height_ratio) #x_pos,y_pos,thickness,height
     ]
 
     ball = Rect(width/2 - ball_ratio/2, height/2 - ball_ratio/2,ball_ratio,ball_ratio)
@@ -113,9 +113,9 @@ def run_gui(client_id, my_socket, op_ip, server_ip, server_port):
         draw.rect(window,light,players[0])
         draw.rect(window,light,players[1])
         draw.aaline(window,light,(width/2,0),(width/2,height))
-
-        if start: #if window is opened
-            draw.ellipse(window,light,ball)
+        
+        #if start: #if window is opened
+        draw.ellipse(window,light,ball)
 
         #Update window
         display.flip()
