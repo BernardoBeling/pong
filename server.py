@@ -4,10 +4,10 @@
     - tipo de conexão (TCP/UDP)
     - botão de conectar
 
-    BJL protocol:
+    BELOJO protocol:
     JOIN;PLAYER_NAME (client-side)
     ACPT;PLAYER_NAME;PLAYER_ID;RESX;RESY (server-side)
-    OPPN;IP;NAME (server-side) servidor deve especificar o tipo de erro
+    OPPN;IP;NAME (server-side)
     BALL;X;Y
     STRT;TYPE (server-side)
     SHOW;SCOREBOARD
@@ -36,7 +36,6 @@ def listen_collision(s,p_queue):
     while True:                    
         if not p_queue.empty():                 
             p_queue.get()
-            print('esvaziou a fila')
 
         try: #fix BlockingIO Winerror 10035 
             msg = s.recv(1500)
@@ -61,8 +60,7 @@ class server:
         self.ball_y_dir = None
         self.max_players = max_players
         self.state = 0 #0: lobby, 1: Game started, 2:Game finished!
-        self.players = [] #queue (name,ip,position) player 1: right / player2: left
-        self.refresh = False
+        self.players = [] #queue (name,ip) player 1: right / player2: left
         self.scoreboard = []
         self.log = log
 
@@ -74,13 +72,14 @@ class server:
     def update_ball(self,s):
         self.ball_pos[0] += self.ball_x_dir
         self.ball_pos[1] += self.ball_y_dir
-        
+    
         if int(self.ball_pos[0]) < -100:
             self.update_scoreboard(0)
             return True
         elif int(self.ball_pos[0]) > self.res_x + 100: #gol
             self.update_scoreboard(1)
             return True
+            
         elif int(self.ball_pos[1]) <= 0 or int(self.ball_pos[1]) >= self.res_y:
             self.ball_y_dir *= -1
             return False
@@ -88,15 +87,9 @@ class server:
         #print(f'BALL;{self.ball_pos[0]};{self.ball_pos[1]}')
 
         time.sleep(0.01666) #60 fps 1/60
+        
         s.sendto(f'BALL;{self.ball_pos[0]};{self.ball_pos[1]}'.encode(), self.players[0][1])
         s.sendto(f'BALL;{self.ball_pos[0]};{self.ball_pos[1]}'.encode(), self.players[1][1])
-    
-    '''
-    Fazer com que ambos players enviem suas posicoes e as colisoes serem calculadas no server, 
-    de modo que ball x == player x -> inverte ball xdir
-    '''
-    #def collision(self):
-        #if 
 
     def listen_moves(self,s):
         while True:        
@@ -133,8 +126,11 @@ class server:
         players_ready = 0
         goal = False
         timeout_time = 60 #s
+
         while 1:
+
             player0_local, player1_local = False, False
+
             if self.state == 0: #lobby
                 s.settimeout(timeout_time)
                 try:
@@ -160,14 +156,15 @@ class server:
                         self.state = 1  
                                                        
                     else:
-                        msg, clientIP = s.recvfrom(1500)
-                        res = msg.decode().split(';')
-
+                        msg, clientIP = s.recvfrom(1500)                        
+                        res = msg.decode().split(';') 
+                        
                         if res[0] == 'JOIN' and self.players_count < self.max_players:            
                             name = res[1]
                             self.players_count += 1
-                            self.players.append([name,clientIP,self.res_y/2]) #create player
-                            print(f'{name} joined server! {clientIP}')                    
+                            self.players.append([name,clientIP]) #create player
+                            print(f'{name} joined server! {clientIP}')     
+                                           
                             s.sendto(f'ACPT;{name};{self.players_count-1};{self.res_x};{self.res_y}'.encode(), clientIP)                        
 
                     self.printl(f'Total players: {self.players_count}/{self.max_players}')
@@ -227,7 +224,7 @@ class server:
 if __name__ == '__main__':
     
     if len(sys.argv) > 1 and sys.argv[1] == 'l':
-        ip = 'localhost'
+        ip = 'localhost' 
     else:
         ip = get_local_ip()
 
