@@ -10,6 +10,9 @@ def get_local_ip():
     s.close()
     return ip
 
+def printl(string):
+    log.write(string + '\n')
+
 def update_ball(x,y,colision):
     ball.center = (int(x),int(y))
 
@@ -19,8 +22,6 @@ def update_ball(x,y,colision):
     elif not colision:
         if x == width/2:
             colision = True
-    else:
-        my_socket.sendto(f'RFSH;'.encode(),(server_ip,server_port))
 
     return colision
 
@@ -70,7 +71,7 @@ def run_gui(client_id, my_socket, op_ip, server_ip, server_port):
     #Pygame initial setup
     init()
     clock = time.Clock()
-
+    
     init_gui()
 
     global player_speed
@@ -78,15 +79,15 @@ def run_gui(client_id, my_socket, op_ip, server_ip, server_port):
 
     allow_colision = True
 
-    if get_init():
-        my_socket.sendto(f'STRT;{client_id}'.encode(), (server_ip,server_port))
+    my_socket.sendto(f'GAME;{client_id}'.encode(), (server_ip,server_port))
     start = False
 
     while True:
         msg = my_socket.recv(1500)
+        printl(msg.decode())
         res = msg.decode().split(';')
 
-        if res[0] == 'STRT':
+        if res[0] == 'GAME':
             start = True
 
         if res[0] == 'BALL': #BALL;X,Y
@@ -114,15 +115,17 @@ def run_gui(client_id, my_socket, op_ip, server_ip, server_port):
         draw.rect(window,light,players[1])
         draw.aaline(window,light,(width/2,0),(width/2,height))
         
-        #if start: #if window is opened
-        draw.ellipse(window,light,ball)
+        if start: #if window is opened
+            draw.ellipse(window,light,ball)
 
         #Update window
         display.flip()
         clock.tick(60) #60 fps
 
 if __name__ == '__main__':
-    global width, height
+    global width, height, log
+
+    log = open('client_log.txt','w')
     name = input('Player name: ')
 
     if len(sys.argv) > 1 and sys.argv[1] == 'l':
@@ -142,6 +145,8 @@ if __name__ == '__main__':
             my_socket.sendto(f'JOIN;{name}'.encode(), (server_ip,server_port))            
 
             msg = my_socket.recv(1500) #ACPT;NAME;ID
+            printl(msg.decode())
+
             status, svname, client_id, width, height = msg.decode().split(';')
             if status == 'ACPT' and svname == name:
                 print(f'Sucessfully joined server! Player id: {client_id}')
@@ -156,30 +161,39 @@ if __name__ == '__main__':
 
     my_socket.settimeout(60)
     print('Waiting for opponent to connect...')
+
     opponent_ip = [None,None]
     opponent_name = ''
+    has_opponent = False
+    state = 0 #0: wait opponent info from server, 1: wait hello from opponent, 2: wait start from server
+
     try:
         while True: #Wait for communication between clients
             msg, ip = my_socket.recvfrom(1500) #OPPN;NAME;IP
+            printl(msg.decode())
             res = msg.decode().split(';')
         
-            if res[0] == 'OPPN':
-                print('entrou')
-                print(res)
+            if res[0] == 'OPPN' and state == 0:
                 opponent_ip = res[1].split(':')
                 opponent_name = res[2]
+                has_opponent = True
+                state = 1
+                printl('Received opponent info from server')
                 print(f'tentando enviar para {opponent_ip[0]}:{int(opponent_ip[1])}')
+
+            elif res[0] == 'HELO' and state == 1:
+                print(res[1])
+                my_socket.sendto(f'STRT;'.encode(), (server_ip,server_port))
+                state = 2 
+                printl('Received hello from opponent')
+
+            elif res[0] == 'STRT' and state == 2:
+                printl('Received start from server')
+                break
+
+            if has_opponent:
                 my_socket.sendto(f'HELO;HELLO FROM {name}'.encode(), (opponent_ip[0],int(opponent_ip[1])))
 
-            elif res[0] == 'OPIP':
-                print(msg)
-                opponent_ip[0] = res[1].split(':')[0]
-                opponent_ip[1] = int(res[1].split(':')[1])
-                print(f'opponent_ip: {opponent_ip}')
-
-            elif res[0] == 'HELO':
-                print(res[1])
-                break
         
     except timeout as err:
         print('No response from opponent.')
@@ -187,6 +201,6 @@ if __name__ == '__main__':
 
     status = ''
     type = ''
-    log = open('client_log.txt','w')
+    
     print(f'Client id: {client_id}')
     run_gui(client_id, my_socket, opponent_ip, server_ip, server_port)

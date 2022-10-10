@@ -40,13 +40,14 @@ def listen_collision(s,p_queue):
         try: #fix BlockingIO Winerror 10035 
             msg = s.recv(1500)
             res = msg.decode().split(';')
-        except error:
-            time.sleep(1)
+            
+            if res[0] == 'COLI':
+                if p_queue.empty():
+                    p_queue.put(res)
+                    time.sleep(1)
+        except OSError:
+            pass 
 
-        if res[0] == 'COLI':
-            if p_queue.empty():
-                p_queue.put(res)
-                time.sleep(1)
 
 class server:
     def __init__(self,ip,port,log,max_players = 2, res_x = 1024, res_y = 600):
@@ -124,6 +125,7 @@ class server:
         self.printl(f'Server online on {self.ip}:{self.port} with UDP connection!')
 
         players_ready = 0
+        games_opened = 0
         goal = False
         timeout_time = 60 #s
 
@@ -144,12 +146,10 @@ class server:
                         if (player0_local and player1_local) or (not player0_local and not player1_local):
                                 s.sendto(f'OPPN;{self.players[0][1][0]}:{self.players[0][1][1]};{self.players[0][0]}'.encode(), self.players[1][1])
                                 s.sendto(f'OPPN;{self.players[1][1][0]}:{self.players[1][1][1]};{self.players[1][0]}'.encode(), self.players[0][1])
-                        elif player0_local:
-                                print('entrou 0local e 1notlocal')
+                        elif player0_local:                                
                                 s.sendto(f'OPPN;{get_external_ip()}:{self.players[0][1][1]};{self.players[0][0]}'.encode(),self.players[1][1])
                                 s.sendto(f'OPPN;{self.players[1][1][0]}:{self.players[1][1][1]};{self.players[1][0]}'.encode(),self.players[0][1])
-                        elif player1_local:
-                                print('entrou 1local e 0notlocal')
+                        elif player1_local:                            
                                 s.sendto(f'OPPN;{get_external_ip()}:{self.players[1][1][1]};{self.players[1][0]}'.encode(),self.players[0][1])
                                 s.sendto(f'OPPN;{self.players[0][1][0]}:{self.players[0][1][1]};{self.players[0][0]}'.encode(),self.players[1][1])                                                    
                                 
@@ -177,21 +177,25 @@ class server:
             elif self.state == 1: #wait both players to be ready
                 msg, clientIP = s.recvfrom(1500)
                 res = msg.decode().split(';')
+
                 if res[0] == 'STRT' and players_ready < 2:
                     players_ready += 1
-                if res[0] == 'STRT' and players_ready == 2:
-                    # players_ready.append(res[1])
-                    # print(players_ready)
-                    # if len(set(players_ready)) == 2:
-                        s.sendto(f'STRT;'.encode(),self.players[0][1])
-                        s.sendto(f'STRT;'.encode(),self.players[1][1])
-                        self.set_scoreboard()
-                        self.set_ball()
-                        time.sleep(2)
-                        s.sendto(f'BALL;{self.ball_pos[0]};{self.ball_pos[1]}'.encode(), self.players[0][1])
-                        s.sendto(f'BALL;{self.ball_pos[0]};{self.ball_pos[1]}'.encode(), self.players[1][1])
-                        self.state = 2
-                        col_process.start()
+
+                if players_ready == 2:                    
+                    s.sendto(f'STRT;'.encode(),self.players[0][1])
+                    s.sendto(f'STRT;'.encode(),self.players[1][1])
+                
+                if res[0] == 'GAME' and games_opened < 2:
+                    games_opened += 1
+                
+                if games_opened == 2:
+                    self.set_ball()
+                    self.set_scoreboard()
+                    s.sendto(f'GAME;'.encode(),self.players[0][1])
+                    s.sendto(f'GAME;'.encode(),self.players[1][1])
+                    col_process.start()
+                    self.state = 2
+                    time.sleep(2)
 
             elif self.state == 2: #game started
 
