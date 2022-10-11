@@ -36,7 +36,7 @@ def listen_collision(s,p_queue):
     while True:                    
         if not p_queue.empty():                 
             p_queue.get()
-          
+     
         try: #fix BlockingIO Winerror 10035 
             msg = s.recv(1500)
             res = msg.decode().split(';')
@@ -45,6 +45,10 @@ def listen_collision(s,p_queue):
                 if p_queue.empty():
                     p_queue.put(res)
                     time.sleep(1)
+            elif res[0] == 'SHUT':
+                s.close()
+                break
+
         except OSError:
             pass
 
@@ -119,14 +123,13 @@ class server:
         print(string)
         log.write(string + '\n')
     
-    def start(self,s,p_queue):
+    def start(self,s,p_queue,max_goals):
             
         self.printl(f'Server online on {self.ip}:{self.port} with UDP connection!')
 
         players_ready = 0
         games_opened = 0
         goal = False
-        max_goals = 1
         timeout_time = 60 #s
 
         while 1:
@@ -211,17 +214,18 @@ class server:
                             if self.scoreboard[0][1] == max_goals or self.scoreboard[1][1] == max_goals:
                                 self.state = 3
                             self.set_ball()
-                            time.sleep(1)
-                        #self.update_scoreboard()
+                            time.sleep(1)                       
 
             elif self.state == 3: #game finished
-                self.print_scoreboard()
-                print('Terminou o jogo')                 
-                s.close()
-                col_process.join()               
+                s.sendto(f'SHUT;{self.print_scoreboard()}'.encode(), (self.players[0][1]))
+                s.sendto(f'SHUT;{self.print_scoreboard()}'.encode(), (self.players[1][1]))
+                print('Terminou o jogo')
+                p_queue.put('end')                 
                 self.state = 4
 
             elif self.state == 4:
+                s.close()
+                col_process.join()               
                 exit()
         return
 
@@ -230,10 +234,14 @@ class server:
 
 if __name__ == '__main__':
     
-    if len(sys.argv) > 1 and sys.argv[1] == 'l':
-        ip = 'localhost' 
-    else:
-        ip = get_local_ip()
+    ip = get_local_ip()
+    max_goals = 10
+
+    if len(sys.argv) > 1 and sys.argv[1] == 'l': 
+        ip = 'localhost'
+    elif len(sys.argv) > 1:
+        max_goals = int(sys.argv[1])
+            
 
     port = int(input('Server port (default 50000): ') or 50000)
     log = open('server_log.txt', 'w')
@@ -252,6 +260,6 @@ if __name__ == '__main__':
     col_process = multiprocessing.Process(target=listen_collision,args=(s,p_queue)) 
 
     server = server(ip,port,log)
-    server.start(s,p_queue)
+    server.start(s,p_queue,max_goals)
     log.close()
     exit()

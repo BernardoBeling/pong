@@ -97,6 +97,11 @@ def run_gui(client_id, my_socket, op_ip, server_ip, server_port):
         if res[0] == 'OPMV': #OPMV;OP_ID;MOVE
             update_player(players[int(res[1])],int(res[1]),res[2])
 
+        if res[0] == 'SHUT':
+            my_socket.sendto(f'SHUT;'.encode(), (server_ip,server_port))
+            print(res[1])
+            sys.exit()
+
         #inputs
         for events in event.get():
             if events.type == QUIT:
