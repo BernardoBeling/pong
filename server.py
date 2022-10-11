@@ -36,7 +36,7 @@ def listen_collision(s,p_queue):
     while True:                    
         if not p_queue.empty():                 
             p_queue.get()
-
+          
         try: #fix BlockingIO Winerror 10035 
             msg = s.recv(1500)
             res = msg.decode().split(';')
@@ -46,8 +46,7 @@ def listen_collision(s,p_queue):
                     p_queue.put(res)
                     time.sleep(1)
         except OSError:
-            pass 
-
+            pass
 
 class server:
     def __init__(self,ip,port,log,max_players = 2, res_x = 1024, res_y = 600):
@@ -127,6 +126,7 @@ class server:
         players_ready = 0
         games_opened = 0
         goal = False
+        max_goals = 1
         timeout_time = 60 #s
 
         while 1:
@@ -208,18 +208,21 @@ class server:
                     if goal:
                         if p_queue.empty():
                             p_queue.put('GOAL')                            
+                            if self.scoreboard[0][1] == max_goals or self.scoreboard[1][1] == max_goals:
+                                self.state = 3
                             self.set_ball()
                             time.sleep(1)
                         #self.update_scoreboard()
 
             elif self.state == 3: #game finished
-                scoreboard_str = self.print_scoreboard()
-                self.clear_moves()
-                for p in self.players:
-                    show_msg = f'SHOW;{scoreboard_str}'.encode()
-                    s.sendto(show_msg,p.ip)
-                    s.sendto('SHUT;'.encode(),(p.ip))
-                break
+                self.print_scoreboard()
+                print('Terminou o jogo')                 
+                s.close()
+                col_process.join()               
+                self.state = 4
+
+            elif self.state == 4:
+                exit()
         return
 
     def __del__(self):
@@ -251,3 +254,4 @@ if __name__ == '__main__':
     server = server(ip,port,log)
     server.start(s,p_queue)
     log.close()
+    exit()

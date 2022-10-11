@@ -169,10 +169,10 @@ if __name__ == '__main__':
 
     try:
         while True: #Wait for communication between clients
-            msg, ip = my_socket.recvfrom(1500) #OPPN;NAME;IP
+            msg, ip = my_socket.recvfrom(1500) #OPPN;NAME;IP 
             printl(msg.decode())
             res = msg.decode().split(';')
-        
+                                            
             if res[0] == 'OPPN' and state == 0:
                 opponent_ip = res[1].split(':')
                 opponent_name = res[2]
