@@ -16,22 +16,24 @@
 '''
 
 from socket import *
+from dataclasses import dataclass, field
+from typing import TextIO
 import multiprocessing
 import time, random, sys
 
-def get_external_ip():
+def get_external_ip() -> str:
     from requests import get
     ip = get('https://api.ipify.org').content.decode('utf8')
     return ip
 
-def get_local_ip():
+def get_local_ip() -> str:
     s = socket(AF_INET, SOCK_DGRAM)
     s.connect(("8.8.8.8", 80))
     ip = s.getsockname()[0]
     s.close()
     return ip
 
-def listen_collision(s,p_queue):
+def listen_collision(s,p_queue) -> None:
     res = ''
     while True:                    
         if not p_queue.empty():                 
@@ -52,28 +54,28 @@ def listen_collision(s,p_queue):
         except OSError:
             pass
 
+@dataclass
 class server:
-    def __init__(self,ip,port,log,max_players = 2, res_x = 1024, res_y = 600):
-        self.ip = ip
-        self.port = port
-        self.players_count = 0
-        self.res_x = res_x
-        self.res_y = res_y
-        self.ball_pos = [None,None] #X,Y
-        self.ball_x_dir = None
-        self.ball_y_dir = None
-        self.max_players = max_players
-        self.state = 0 #0: lobby, 1: Game started, 2:Game finished!
-        self.players = [] #queue (name,ip) player 1: right / player2: left
-        self.scoreboard = []
-        self.log = log
+    ip: str
+    port: int
+    log: TextIO  
+    res_x: int = 1024
+    res_y: int = 600
+    ball_x_dir: int = None
+    ball_y_dir: int = None
+    max_players: int = 2
+    state: int = 0 #0: lobby, 1: Game started, 2:Game finished!
+    players_count: int = 0
+    players: list = field(default_factory=list) #queue (name,ip) player 1: right / player2: left
+    scoreboard: list = field(default_factory=list)
+    ball_pos: list = field(default_factory=list) #X,Y
 
-    def set_ball(self):
+    def set_ball(self) -> None:
         self.ball_pos = [self.res_x/2,self.res_y/2]
         self.ball_x_dir = random.choice((-7,7))
         self.ball_y_dir = random.choice((-1,1))
     
-    def update_ball(self,s):
+    def update_ball(self,s) -> bool:
         self.ball_pos[0] += self.ball_x_dir
         self.ball_pos[1] += self.ball_y_dir
     
@@ -95,7 +97,7 @@ class server:
         s.sendto(f'BALL;{self.ball_pos[0]};{self.ball_pos[1]}'.encode(), self.players[0][1])
         s.sendto(f'BALL;{self.ball_pos[0]};{self.ball_pos[1]}'.encode(), self.players[1][1])
 
-    def listen_moves(self,s):
+    def listen_moves(self,s) -> None:
         while True:        
             msg = s.recv(1500)
             res = msg.decode().split(';')
@@ -103,15 +105,15 @@ class server:
             if res[0] == 'OPMV':
                 self.players[int(res[1])][2] = int(res[2])
 
-    def set_scoreboard(self):
+    def set_scoreboard(self) -> None:
         for i in range(len(self.players)):
             self.scoreboard.append([self.players[i][0],0])
     
-    def update_scoreboard(self, pos):      
+    def update_scoreboard(self, pos) -> None:      
         self.scoreboard[pos][1] += 1
         self.print_scoreboard()
     
-    def print_scoreboard(self):
+    def print_scoreboard(self) -> str:
         scoreboard_str = '='*5 + ' Scoreboard ' + '='*5 +'\n'\
             + f'{self.scoreboard[0][0]}: {self.scoreboard[0][1]}, \
         {self.scoreboard[1][0]}: {self.scoreboard[1][1]}' + '\n'\
@@ -119,11 +121,11 @@ class server:
         self.printl(scoreboard_str)
         return scoreboard_str
     
-    def printl(self,string):
+    def printl(self,string) -> None:
         print(string)
         log.write(string + '\n')
     
-    def start(self,s,p_queue,max_goals):
+    def start(self,s,p_queue,max_goals) -> None:
             
         self.printl(f'Server online on {self.ip}:{self.port} with UDP connection!')
 
@@ -229,7 +231,7 @@ class server:
                 exit()
         return
 
-    def __del__(self):
+    def __del__(self) -> None:
         print('Server closed!')
 
 if __name__ == '__main__':
